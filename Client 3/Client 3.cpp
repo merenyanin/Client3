@@ -2,6 +2,8 @@
 #include <iostream>
 #include <vector>
 #include <winsock2.h>
+#include <cstdint>
+#include <string>
 #pragma comment(lib, "ws2_32.lib")
 #pragma warning(disable: 4996)
 
@@ -15,9 +17,12 @@ enum CommandOpcode {
     FILL_ELLIPSE_OPCODE
 };
 
+
+
 class DisplayClient : public GraphicsLib {
 public:
-    DisplayClient(uint_least16_t w, uint_least16_t h) : GraphicsLib(w, h) {
+    DisplayClient(uint_least16_t w, uint_least16_t h, const std::string& ipAddress, uint16_t port)
+        : GraphicsLib(w, h), ipAddress(ipAddress), port(port) {
         initSocket();
     }
 
@@ -27,7 +32,6 @@ public:
     }
 
     void fillScreen(uint_least16_t color) override {
-       
         std::vector<uint8_t> command = { CLEAR_DISPLAY_OPCODE };
         addColorToCommand(command, color);
         sendCommand(command);
@@ -38,7 +42,6 @@ public:
         addCoordinatesToCommand(command, x0, y0);
         addColorToCommand(command, color);
         sendCommand(command);
-       
     }
 
     void drawLine(int_least16_t x0, int_least16_t y0, int_least16_t x1, int_least16_t y1, uint_least16_t color) override {
@@ -47,7 +50,6 @@ public:
         addCoordinatesToCommand(command, x1, y1);
         addColorToCommand(command, color);
         sendCommand(command);
-       
     }
 
     void drawRect(int_least16_t x0, int_least16_t y0, int_least16_t w, int_least16_t h, uint_least16_t color) override {
@@ -85,22 +87,24 @@ public:
 private:
     SOCKET clientSocket;
     sockaddr_in serverAddr;
+    std::string ipAddress;
+    uint16_t port;
 
     void initSocket() {
         WSAData wsaData;
         WORD DLLVersion = MAKEWORD(2, 2);
         if (WSAStartup(DLLVersion, &wsaData) != 0) {
-            throw std::runtime_error("Error initializing WinSock");
+            throw std::runtime_error("Помилка ініціалізації WinSock");
         }
         clientSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if (clientSocket == INVALID_SOCKET) {
             WSACleanup();
-            throw std::runtime_error("Error creating socket");
+            throw std::runtime_error("Помилка створення сокета");
         }
 
         serverAddr.sin_family = AF_INET;
-        serverAddr.sin_port = htons(1111); // Порт сервера
-        serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1"); // Локальний IP
+        serverAddr.sin_port = htons(port);
+        serverAddr.sin_addr.s_addr = inet_addr(ipAddress.c_str());
     }
 
     void sendCommand(const std::vector<uint8_t>& command) {
@@ -122,16 +126,64 @@ private:
 };
 
 
+void displayTrafficLight(GraphicsLib& display) {
+    const int_least16_t centerX = display.getWidth() / 2;
+    const int_least16_t centerY = display.getHeight() / 2;
+    const int_least16_t radius = 40;
+    const int_least16_t spacing = 100;
+
+    
+    const int_least16_t boxWidth = radius * 2;
+    const int_least16_t boxHeight = spacing * 3;
+    const int_least16_t boxX = centerX - boxWidth / 2;
+    const int_least16_t boxY = centerY - spacing - radius;
+
+    display.fillRect(boxX, boxY, boxWidth, boxHeight, toRGB565(123, 50, 50)); 
+
+   
+    const int_least16_t poleWidth = 20;
+    const int_least16_t poleHeight = 200;
+    const int_least16_t poleX = centerX - poleWidth / 2;
+    const int_least16_t poleY = boxY + boxHeight;
+
+    display.fillRect(poleX, poleY, poleWidth, poleHeight, toRGB565(10, 0, 10)); 
+
+    while (true) {
+      
+        display.fillEllipse(centerX, centerY - spacing, radius, radius, toRGB565(255, 0, 0));
+        display.fillEllipse(centerX, centerY, radius, radius, toRGB565(0, 0, 0));
+        display.fillEllipse(centerX, centerY + spacing, radius, radius, toRGB565(0, 0, 0));
+        Sleep(2000);
+
+      
+        display.fillEllipse(centerX, centerY - spacing, radius, radius, toRGB565(0, 0, 0));
+        display.fillEllipse(centerX, centerY, radius, radius, toRGB565(255, 255, 0));
+        display.fillEllipse(centerX, centerY + spacing, radius, radius, toRGB565(0, 0, 0));
+        Sleep(1000);
+
+       
+        display.fillEllipse(centerX, centerY - spacing, radius, radius, toRGB565(0, 0, 0));
+        display.fillEllipse(centerX, centerY, radius, radius, toRGB565(0, 0, 0));
+        display.fillEllipse(centerX, centerY + spacing, radius, radius, toRGB565(0, 255, 0));
+        Sleep(2000);
+    }
+}
+
+
 int main() {
     try {
-        DisplayClient display(800, 600);
-        display.fillScreen(RGB(0, 0,0)); 
-        display.drawPixel(100, 100, RGB(255, 0, 0)); 
-        display.drawLine(100, 50, 150, 150, RGB(0, 255, 0)); 
-        display.drawRect(200, 200, 200, 200, RGB(0, 0, 255)); 
-        display.fillRect(200, 200, 200, 200, RGB(255, 255, 0)); 
-        display.drawEllipse(400, 400, 30, 15, RGB(255, 0, 255)); 
-        display.fillEllipse(400, 400, 30, 15, RGB(0, 255, 255)); 
+        DisplayClient display(800, 600, "127.0.0.1", 1111);
+        display.fillScreen(toRGB565(255, 255, 255));
+        displayTrafficLight(display);
+
+      /*  display.fillScreen(RGB(0, 0, 0));
+        display.drawPixel(100, 100, RGB(255, 0, 0));
+        display.drawLine(100, 50, 150, 150, RGB(0, 255, 0));
+        display.drawRect(200, 200, 200, 200, RGB(0, 0, 255));
+        display.fillRect(200, 200, 200, 200, RGB(255, 255, 0));
+        display.drawEllipse(400, 400, 30, 15, RGB(255, 0, 255));
+        display.fillEllipse(400, 400, 30, 15, RGB(0, 255, 255));*/
+
     }
     catch (const std::exception& e) {
         std::cerr << "Exception: " << e.what() << std::endl;
