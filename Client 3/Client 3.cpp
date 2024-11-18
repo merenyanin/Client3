@@ -14,8 +14,9 @@ enum CommandOpcode {
     DRAW_RECTANGLE_OPCODE,
     FILL_RECTANGLE_OPCODE,
     DRAW_ELLIPSE_OPCODE,
-    FILL_ELLIPSE_OPCODE
-  
+    FILL_ELLIPSE_OPCODE,
+    DRAW_TEXT_OPCODE
+
 };
 
 
@@ -68,6 +69,30 @@ public:
         addColorToCommand(command, color);
         sendCommand(command);
     }
+    void drawText(int16_t x, int16_t y, uint16_t color, const std::string& text) {
+        int16_t letterSpacing = 10; // Пробіл між буквами
+        for (char c : text) {
+            std::vector<uint8_t> command;
+            command.push_back(DRAW_TEXT_OPCODE);
+
+            command.push_back(x >> 8);
+            command.push_back(x & 0xFF);
+
+            command.push_back(y >> 8);
+            command.push_back(y & 0xFF);
+
+            command.push_back(color >> 8);
+            command.push_back(color & 0xFF);
+
+            command.push_back(c); // Додаємо символ
+
+            sendCommand(command);
+
+            x += 19 + letterSpacing; // Зміщуємо позицію вправо, додаючи пробіл
+        }
+    }
+
+
 
     void drawEllipse(int_least16_t x0, int_least16_t y0, int_least16_t r_x, int_least16_t r_y, uint_least16_t color) override {
         std::vector<uint8_t> command = { DRAW_ELLIPSE_OPCODE };
@@ -85,41 +110,7 @@ public:
         addColorToCommand(command, color);
         sendCommand(command);
     }
-    void drawText(int_least16_t x, int_least16_t y, const std::string& text, uint_least16_t color) {
-     
-        const int_least16_t xOffset = 10;  
-        const int_least16_t yOffset = 10;  
-        const int_least16_t yVerticalOffset = 30; 
-
     
-        y += yVerticalOffset;
-
-        for (size_t i = 0; i < text.size(); ++i) {
-            if (text[i] == 'A') {
-             
-                drawLine(x + xOffset, y - yOffset, x + 20 + xOffset, y - 30 - yOffset, color);
-                drawLine(x + 20 + xOffset, y - 30 - yOffset, x + 40 + xOffset, y - yOffset, color);
-                drawLine(x + 10 + xOffset, y - 15 - yOffset, x + 30 + xOffset, y - 15 - yOffset, color);
-            }
-            else if (text[i] == 'B') {
-        
-                drawLine(x + xOffset, y - yOffset, x + xOffset, y - 30 - yOffset, color);  
-                drawLine(x + xOffset, y - 30 - yOffset, x + 20 + xOffset, y - 30 - yOffset, color);  
-                drawLine(x + 20 + xOffset, y - 30 - yOffset, x + 20 + xOffset, y - 15 - yOffset, color);  
-                drawLine(x + 20 + xOffset, y - 15 - yOffset, x + xOffset, y - 15 - yOffset, color);  
-                drawLine(x + 20 + xOffset, y - 15 - yOffset, x + 20 + xOffset, y - yOffset, color); 
-                drawLine(x + 20 + xOffset, y - yOffset, x + xOffset, y - yOffset, color);  
-            }
-            else if (text[i] == 'C') {
-             
-                drawLine(x + 20 + xOffset, y - 30 - yOffset, x + xOffset, y - 30 - yOffset, color);  
-                drawLine(x + xOffset, y - 30 - yOffset, x + xOffset, y - yOffset, color);  
-                drawLine(x + xOffset, y - yOffset, x + 20 + xOffset, y - yOffset, color);  
-            }
-       
-            x += 50;  
-        }
-    }
 
 
 private:
@@ -171,53 +162,56 @@ void displayTrafficLight(GraphicsLib& display) {
     const int_least16_t radius = 50;
     const int_least16_t spacing = 100;
 
-    
+
     const int_least16_t boxWidth = radius * 2;
     const int_least16_t boxHeight = spacing * 3;
     const int_least16_t boxX = centerX - boxWidth / 2;
     const int_least16_t boxY = centerY - spacing - radius;
 
-    display.fillRect(boxX, boxY, boxWidth, boxHeight, toRGB565(123, 50, 50)); 
+    display.fillRect(boxX, boxY, boxWidth, boxHeight, toRGB565(123, 50, 50));
 
-   
+
     const int_least16_t poleWidth = 20;
     const int_least16_t poleHeight = 200;
     const int_least16_t poleX = centerX - poleWidth / 2;
     const int_least16_t poleY = boxY + boxHeight;
 
-    display.fillRect(poleX, poleY, poleWidth, poleHeight, toRGB565(10, 0, 10)); 
+    display.fillRect(poleX, poleY, poleWidth, poleHeight, toRGB565(10, 0, 10));
 
     while (true) {
-      
+
         display.fillEllipse(centerX, centerY - spacing, radius, radius, toRGB565(255, 0, 0));
         display.fillEllipse(centerX, centerY, radius, radius, toRGB565(0, 0, 0));
         display.fillEllipse(centerX, centerY + spacing, radius, radius, toRGB565(0, 0, 0));
         Sleep(2000);
 
-      
+
         display.fillEllipse(centerX, centerY - spacing, radius, radius, toRGB565(0, 0, 0));
         display.fillEllipse(centerX, centerY, radius, radius, toRGB565(255, 255, 0));
         display.fillEllipse(centerX, centerY + spacing, radius, radius, toRGB565(0, 0, 0));
         Sleep(1000);
 
-       
+
         display.fillEllipse(centerX, centerY - spacing, radius, radius, toRGB565(0, 0, 0));
         display.fillEllipse(centerX, centerY, radius, radius, toRGB565(0, 0, 0));
         display.fillEllipse(centerX, centerY + spacing, radius, radius, toRGB565(0, 255, 0));
         Sleep(2000);
     }
 
+
+
 }
+
 
 
 
 int main() {
     try {
         DisplayClient display(800, 600, "127.0.0.1", 1111);
-        display.fillScreen(toRGB565(255, 255, 255));  
-
-        std::string text = "A B C ";
-        display.drawText(0x00, 0x10, text, toRGB565(255, 0, 0));  
+        display.fillScreen(toRGB565(255, 255, 255));
+        display.drawText(100, 200, 0x0000, "HELLO WORLD");
+      
+      
 
     }
     catch (const std::exception& e) {

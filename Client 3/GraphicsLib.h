@@ -3,6 +3,7 @@
 #define GraphicsLib_h
 
 #include <stdint.h>
+#include <string>
 
 #ifndef RGB
 #define RGB(r, g, b) ((uint16_t)((((r) & 0xF8) << 8) | (((g) & 0xFC) << 3) | (((b) & 0xF8) >> 3)))
@@ -29,8 +30,13 @@ public:
     virtual void drawEllipse(int_least16_t x0, int_least16_t y0, int_least16_t r_x, int_least16_t r_y, uint_least16_t color) = 0;
     virtual void fillEllipse(int_least16_t x0, int_least16_t y0, int_least16_t r_x, int_least16_t r_y, uint_least16_t color) = 0;
 
+    // Додаємо метод drawText
+    virtual void drawText(int_least16_t x, int_least16_t y, uint_least16_t color, const std::string& text) = 0;
+
 private:
-    int_least16_t width, height; 
+    int_least16_t width, height;
 };
 
+
 #endif // GraphicsLib_h
+
