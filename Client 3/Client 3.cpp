@@ -15,8 +15,10 @@ enum CommandOpcode {
     FILL_RECTANGLE_OPCODE,
     DRAW_ELLIPSE_OPCODE,
     FILL_ELLIPSE_OPCODE,
-    DRAW_TEXT_OPCODE
-
+    DRAW_TEXT_OPCODE,
+    SET_ORIENTATION_OPCODE, // для встановлення орієнтації
+    GET_WIDTH_OPCODE,       // для запиту ширини
+    GET_HEIGHT_OPCODE
 };
 
 
@@ -37,6 +39,48 @@ public:
         std::vector<uint8_t> command = { CLEAR_DISPLAY_OPCODE };
         addColorToCommand(command, color);
         sendCommand(command);
+    }
+    std::vector<uint8_t> receiveResponse(size_t expectedSize) {
+    std::vector<uint8_t> buffer(expectedSize);
+    int receivedBytes = recv(clientSocket, reinterpret_cast<char*>(buffer.data()), expectedSize, 0);
+    if (receivedBytes != expectedSize) {
+        throw std::runtime_error("Failed to receive complete response from server");
+    }
+    return buffer;
+}
+
+    void setOrientation(int_least16_t orientation) {
+        if (orientation != 0 && orientation != 90 && orientation != 180 && orientation != 270) {
+            throw std::invalid_argument("Invalid orientation value");
+        }
+
+        std::vector<uint8_t> command = { SET_ORIENTATION_OPCODE };
+        command.push_back((orientation >> 8) & 0xFF);
+        command.push_back(orientation & 0xFF);
+
+        sendCommand(command);
+    }
+
+    uint16_t getWidth() {
+        std::vector<uint8_t> command = { GET_WIDTH_OPCODE };
+        sendCommand(command);
+
+        std::vector<uint8_t> response = receiveResponse(3); 
+        if (response[0] != GET_WIDTH_OPCODE) {
+            throw std::runtime_error("Invalid response opcode for GET_WIDTH");
+        }
+        return (response[1] << 8) | response[2];
+    }
+
+    uint16_t getHeight() {
+        std::vector<uint8_t> command = { GET_HEIGHT_OPCODE };
+        sendCommand(command);
+
+        std::vector<uint8_t> response = receiveResponse(3); 
+        if (response[0] != GET_HEIGHT_OPCODE) {
+            throw std::runtime_error("Invalid response opcode for GET_HEIGHT");
+        }
+        return (response[1] << 8) | response[2];
     }
 
     void drawPixel(int_least16_t x0, int_least16_t y0, uint_least16_t color) override {
@@ -61,6 +105,8 @@ public:
         addColorToCommand(command, color);
         sendCommand(command);
     }
+   
+    
 
     void fillRect(int_least16_t x0, int_least16_t y0, int_least16_t w, int_least16_t h, uint_least16_t color) override {
         std::vector<uint8_t> command = { FILL_RECTANGLE_OPCODE };
@@ -69,29 +115,57 @@ public:
         addColorToCommand(command, color);
         sendCommand(command);
     }
-    void drawText(int16_t x, int16_t y, uint16_t color, const std::string& text) {
-        int16_t letterSpacing = 10; // Пробіл між буквами
+    void drawText(int16_t x, int16_t y, uint16_t color, const std::string& text, int_least16_t orientation = 0, int_least16_t spacing = 19) {
+        const int16_t centerX = x;
+        const int16_t centerY = y;
+
+       
+        const double radians = orientation * 3.14 / 180.0;
+
+        int16_t currentX = x;
+        int16_t currentY = y;
+
         for (char c : text) {
-            std::vector<uint8_t> command;
-            command.push_back(DRAW_TEXT_OPCODE);
+      
+            int16_t rotatedX = centerX + (currentX - centerX) * cos(radians) - (currentY - centerY) * sin(radians);
+            int16_t rotatedY = centerY + (currentX - centerX) * sin(radians) + (currentY - centerY) * cos(radians);
 
-            command.push_back(x >> 8);
-            command.push_back(x & 0xFF);
+           
+            std::vector<uint8_t> command = { DRAW_TEXT_OPCODE };
 
-            command.push_back(y >> 8);
-            command.push_back(y & 0xFF);
+            command.push_back(rotatedX >> 8);
+            command.push_back(rotatedX & 0xFF);
+
+            command.push_back(rotatedY >> 8);
+            command.push_back(rotatedY & 0xFF);
 
             command.push_back(color >> 8);
             command.push_back(color & 0xFF);
 
-            command.push_back(c); // Додаємо символ
+            command.push_back(c); 
 
             sendCommand(command);
 
-            x += 19 + letterSpacing; // Зміщуємо позицію вправо, додаючи пробіл
+           
+            currentX += spacing; 
         }
     }
 
+    void animateCircle(GraphicsLib& display) {
+        const int radius = 20;
+        int width = display.getWidth();
+        int height = display.getHeight();
+
+        for (int i = 0; i < width; ++i) {
+          
+            display.fillScreen(toRGB565(255, 255, 255));
+
+           
+            display.fillEllipse(i, height / 2, radius, radius, toRGB565(255, 0, 0));
+
+            Sleep(20);
+        }
+    }
 
 
     void drawEllipse(int_least16_t x0, int_least16_t y0, int_least16_t r_x, int_least16_t r_y, uint_least16_t color) override {
@@ -156,6 +230,7 @@ private:
 };
 
 
+
 void displayTrafficLight(GraphicsLib& display) {
     const int_least16_t centerX = display.getWidth() / 2;
     const int_least16_t centerY = display.getHeight() / 2;
@@ -209,8 +284,12 @@ int main() {
     try {
         DisplayClient display(800, 600, "127.0.0.1", 1111);
         display.fillScreen(toRGB565(255, 255, 255));
-        display.drawText(100, 200, 0x0000, "HELLO WORLD");
-      
+        display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD", 270, 30); 
+        display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD", 90, 30);
+        display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD", 180, 30);
+        display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD", 0, 30);
+      /*  display.animateCircle(display);*/
+    
       
 
     }
