@@ -31,7 +31,7 @@ public:
     virtual void fillRect(int_least16_t x0, int_least16_t y0, int_least16_t w, int_least16_t h, uint_least16_t color) = 0;
     virtual void drawEllipse(int_least16_t x0, int_least16_t y0, int_least16_t r_x, int_least16_t r_y, uint_least16_t color) = 0;
     virtual void fillEllipse(int_least16_t x0, int_least16_t y0, int_least16_t r_x, int_least16_t r_y, uint_least16_t color) = 0;
-    virtual void drawText(int16_t x, int16_t y, uint16_t color, const std::string& text, int_least16_t orientation = 0, int_least16_t spacing = 19) = 0;
+    virtual void drawText(int16_t x, int16_t y, uint16_t color, const std::string& text,  int_least16_t spacing = 19) = 0;
     virtual void setOrientation(int_least16_t orientation) = 0;
 
 protected:

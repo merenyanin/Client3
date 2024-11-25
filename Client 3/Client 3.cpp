@@ -115,7 +115,7 @@ public:
         addColorToCommand(command, color);
         sendCommand(command);
     }
-    void drawText(int16_t x, int16_t y, uint16_t color, const std::string& text, int_least16_t orientation = 0, int_least16_t spacing = 19) {
+    void drawText(int16_t x, int16_t y, uint16_t color, const std::string& text, int_least16_t spacing = 19) {
         const int16_t centerX = x;
         const int16_t centerY = y;
 
@@ -284,10 +284,13 @@ int main() {
     try {
         DisplayClient display(800, 600, "127.0.0.1", 1111);
         display.fillScreen(toRGB565(255, 255, 255));
-        display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD", 270, 30); 
+        display.setOrientation(90);
+      /*  display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD", 270, 30); 
         display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD", 90, 30);
-        display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD", 180, 30);
-        display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD", 0, 30);
+        display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD", 180, 30);*/
+        display.drawLine(10, 100, 100, 100, toRGB565(0, 255, 0));
+        display.drawEllipse(400, 300, 150, 100, toRGB565(255, 0, 0));
+        display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD",30);
       /*  display.animateCircle(display);*/
     
       
