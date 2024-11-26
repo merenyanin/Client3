@@ -18,10 +18,10 @@ enum CommandOpcode {
     DRAW_TEXT_OPCODE,
     SET_ORIENTATION_OPCODE, // для встановлення орієнтації
     GET_WIDTH_OPCODE,       // для запиту ширини
-    GET_HEIGHT_OPCODE
+    GET_HEIGHT_OPCODE,
+    LOAD_SPRITE_OPCODE, 
+    SHOW_SPRITE_OPCODE
 };
-
-
 
 class DisplayClient : public GraphicsLib {
 public:
@@ -41,13 +41,13 @@ public:
         sendCommand(command);
     }
     std::vector<uint8_t> receiveResponse(size_t expectedSize) {
-    std::vector<uint8_t> buffer(expectedSize);
-    int receivedBytes = recv(clientSocket, reinterpret_cast<char*>(buffer.data()), expectedSize, 0);
-    if (receivedBytes != expectedSize) {
-        throw std::runtime_error("Failed to receive complete response from server");
+        std::vector<uint8_t> buffer(expectedSize);
+        int receivedBytes = recv(clientSocket, reinterpret_cast<char*>(buffer.data()), expectedSize, 0);
+        if (receivedBytes != expectedSize) {
+            throw std::runtime_error("Failed to receive complete response from server");
+        }
+        return buffer;
     }
-    return buffer;
-}
 
     void setOrientation(int_least16_t orientation) {
         if (orientation != 0 && orientation != 90 && orientation != 180 && orientation != 270) {
@@ -65,7 +65,7 @@ public:
         std::vector<uint8_t> command = { GET_WIDTH_OPCODE };
         sendCommand(command);
 
-        std::vector<uint8_t> response = receiveResponse(3); 
+        std::vector<uint8_t> response = receiveResponse(3);
         if (response[0] != GET_WIDTH_OPCODE) {
             throw std::runtime_error("Invalid response opcode for GET_WIDTH");
         }
@@ -76,7 +76,7 @@ public:
         std::vector<uint8_t> command = { GET_HEIGHT_OPCODE };
         sendCommand(command);
 
-        std::vector<uint8_t> response = receiveResponse(3); 
+        std::vector<uint8_t> response = receiveResponse(3);
         if (response[0] != GET_HEIGHT_OPCODE) {
             throw std::runtime_error("Invalid response opcode for GET_HEIGHT");
         }
@@ -87,6 +87,42 @@ public:
         std::vector<uint8_t> command = { DRAW_PIXEL_OPCODE };
         addCoordinatesToCommand(command, x0, y0);
         addColorToCommand(command, color);
+        sendCommand(command);
+    }
+    
+    void loadSprite(uint16_t index, uint16_t width, uint16_t height, const std::vector<uint8_t>& data)  {
+        if (data.size() != width * height) {
+            throw std::invalid_argument("Sprite data size does not match specified dimensions.");
+        }
+
+        std::vector<uint8_t> command = { LOAD_SPRITE_OPCODE };
+
+  
+        command.push_back((index >> 8) & 0xFF);
+        command.push_back(index & 0xFF);
+
+       
+        command.push_back((width >> 8) & 0xFF);
+        command.push_back(width & 0xFF);
+        command.push_back((height >> 8) & 0xFF);
+        command.push_back(height & 0xFF);
+
+      
+        command.insert(command.end(), data.begin(), data.end());
+
+        sendCommand(command);
+    }
+    
+    void showSprite(uint16_t index, int16_t x, int16_t y) {
+        std::vector<uint8_t> command = { SHOW_SPRITE_OPCODE };
+
+       
+        command.push_back((index >> 8) & 0xFF);
+        command.push_back(index & 0xFF);
+
+     
+        addCoordinatesToCommand(command, x, y);
+
         sendCommand(command);
     }
 
@@ -105,8 +141,8 @@ public:
         addColorToCommand(command, color);
         sendCommand(command);
     }
-   
-    
+
+
 
     void fillRect(int_least16_t x0, int_least16_t y0, int_least16_t w, int_least16_t h, uint_least16_t color) override {
         std::vector<uint8_t> command = { FILL_RECTANGLE_OPCODE };
@@ -119,18 +155,18 @@ public:
         const int16_t centerX = x;
         const int16_t centerY = y;
 
-       
+
         const double radians = orientation * 3.14 / 180.0;
 
         int16_t currentX = x;
         int16_t currentY = y;
 
         for (char c : text) {
-      
+
             int16_t rotatedX = centerX + (currentX - centerX) * cos(radians) - (currentY - centerY) * sin(radians);
             int16_t rotatedY = centerY + (currentX - centerX) * sin(radians) + (currentY - centerY) * cos(radians);
 
-           
+
             std::vector<uint8_t> command = { DRAW_TEXT_OPCODE };
 
             command.push_back(rotatedX >> 8);
@@ -142,12 +178,12 @@ public:
             command.push_back(color >> 8);
             command.push_back(color & 0xFF);
 
-            command.push_back(c); 
+            command.push_back(c);
 
             sendCommand(command);
 
-           
-            currentX += spacing; 
+
+            currentX += spacing;
         }
     }
 
@@ -157,10 +193,10 @@ public:
         int height = display.getHeight();
 
         for (int i = 0; i < width; ++i) {
-          
+
             display.fillScreen(toRGB565(255, 255, 255));
 
-           
+
             display.fillEllipse(i, height / 2, radius, radius, toRGB565(255, 0, 0));
 
             Sleep(20);
@@ -184,7 +220,7 @@ public:
         addColorToCommand(command, color);
         sendCommand(command);
     }
-    
+
 
 
 private:
@@ -283,17 +319,21 @@ void displayTrafficLight(GraphicsLib& display) {
 int main() {
     try {
         DisplayClient display(800, 600, "127.0.0.1", 1111);
-        display.fillScreen(toRGB565(255, 255, 255));
-        display.setOrientation(90);
-      /*  display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD", 270, 30); 
-        display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD", 90, 30);
-        display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD", 180, 30);*/
-        display.drawLine(10, 100, 100, 100, toRGB565(0, 255, 0));
-        display.drawEllipse(400, 300, 150, 100, toRGB565(255, 0, 0));
-        display.drawText(300, 200, toRGB565(255, 0, 0), "HELLO WORLD",30);
-      /*  display.animateCircle(display);*/
-    
-      
+
+        
+        display.fillScreen(toRGB565(0, 0, 0));
+
+
+        std::vector<uint8_t> spriteData1(256, 0);
+        for (int y = 0; y < 16; ++y) {
+            for (int x = 0; x < 16; ++x) {
+                int distance = abs(x - 8) + abs(y - 8);
+                spriteData1[y * 16 + x] = (distance % 2 == 0) ? 255 : 0;
+            }
+        }
+        display.loadSprite(1, 16, 16, spriteData1);
+        display.showSprite(1, 100, 100);
+
 
     }
     catch (const std::exception& e) {
