@@ -39,7 +39,7 @@ public:
 
 protected:
     int_least16_t width, height;
-    int_least16_t orientation; // Çì³ííà äëÿ çáåðåæåííÿ îð³ºíòàö³¿
+    int_least16_t orientation; 
 };
 
 #endif // GraphicsLib_h

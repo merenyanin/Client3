@@ -90,28 +90,25 @@ public:
         sendCommand(command);
     }
     
-    void loadSprite(uint16_t index, uint16_t width, uint16_t height, const std::vector<uint8_t>& data)  {
-        if (data.size() != width * height) {
+    void loadSprite(uint16_t index, uint16_t width, uint16_t height, const std::vector<uint8_t>& data) {
+        if (data.size() != width * height * 3) { // Кожен піксель має 3 байти (RGB)
             throw std::invalid_argument("Sprite data size does not match specified dimensions.");
         }
 
         std::vector<uint8_t> command = { LOAD_SPRITE_OPCODE };
 
-  
         command.push_back((index >> 8) & 0xFF);
         command.push_back(index & 0xFF);
-
-       
         command.push_back((width >> 8) & 0xFF);
         command.push_back(width & 0xFF);
         command.push_back((height >> 8) & 0xFF);
         command.push_back(height & 0xFF);
 
-      
         command.insert(command.end(), data.begin(), data.end());
 
         sendCommand(command);
     }
+
     
     void showSprite(uint16_t index, int16_t x, int16_t y) {
         std::vector<uint8_t> command = { SHOW_SPRITE_OPCODE };
@@ -320,21 +317,17 @@ int main() {
     try {
         DisplayClient display(800, 600, "127.0.0.1", 1111);
 
-        
         display.fillScreen(toRGB565(0, 0, 0));
 
-
-        std::vector<uint8_t> spriteData1(256, 0);
-        for (int y = 0; y < 16; ++y) {
-            for (int x = 0; x < 16; ++x) {
-                int distance = abs(x - 8) + abs(y - 8);
-                spriteData1[y * 16 + x] = (distance % 2 == 0) ? 255 : 0;
-            }
+        std::vector<uint8_t> spriteData(16 * 16 * 3); 
+        for (size_t i = 0; i < spriteData.size(); i += 3) {
+            spriteData[i] = 255;     
+            spriteData[i + 1] = 0;   
+            spriteData[i + 2] = 0;   
         }
-        display.loadSprite(1, 16, 16, spriteData1);
+
+        display.loadSprite(1, 16, 16, spriteData);
         display.showSprite(1, 100, 100);
-
-
     }
     catch (const std::exception& e) {
         std::cerr << "Exception: " << e.what() << std::endl;
@@ -342,3 +335,5 @@ int main() {
 
     return 0;
 }
+
+
