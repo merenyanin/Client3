@@ -319,11 +319,26 @@ int main() {
 
         display.fillScreen(toRGB565(0, 0, 0));
 
-        std::vector<uint8_t> spriteData(16 * 16 * 3); 
-        for (size_t i = 0; i < spriteData.size(); i += 3) {
-            spriteData[i] = 255;     
-            spriteData[i + 1] = 0;   
-            spriteData[i + 2] = 0;   
+        std::vector<uint8_t> spriteData(16 * 16 * 3, 0); 
+        for (int y = 0; y < 16; ++y) {
+            for (int x = 0; x < 16; ++x) {
+                int pixelIndex = (y * 16 + x) * 3;
+                if ((x + y) % 3 == 0) {
+                    spriteData[pixelIndex] = 255;       
+                    spriteData[pixelIndex + 1] = 0;    
+                    spriteData[pixelIndex + 2] = 0;    
+                }
+                else if ((x + y) % 3 == 1) {
+                    spriteData[pixelIndex] = 0;         
+                    spriteData[pixelIndex + 1] = 255;   
+                    spriteData[pixelIndex + 2] = 0;     
+                }
+                else {
+                    spriteData[pixelIndex] = 0;        
+                    spriteData[pixelIndex + 1] = 0;     
+                    spriteData[pixelIndex + 2] = 255;   
+                }
+            }
         }
 
         display.loadSprite(1, 16, 16, spriteData);
@@ -335,5 +350,4 @@ int main() {
 
     return 0;
 }
-
 
