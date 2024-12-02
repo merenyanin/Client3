@@ -4,6 +4,13 @@
 #include <winsock2.h>
 #include <cstdint>
 #include <string>
+#include <ctime> 
+#include <sstream> 
+#include <thread>
+#include <chrono>
+#include <ctime>
+#include <mutex>
+#include <random> 
 #pragma comment(lib, "ws2_32.lib")
 #pragma warning(disable: 4996)
 
@@ -91,7 +98,7 @@ public:
     }
     
     void loadSprite(uint16_t index, uint16_t width, uint16_t height, const std::vector<uint8_t>& data) {
-        if (data.size() != width * height * 3) { // Кожен піксель має 3 байти (RGB)
+        if (data.size() != width * height * 3) { 
             throw std::invalid_argument("Sprite data size does not match specified dimensions.");
         }
 
@@ -313,36 +320,119 @@ void displayTrafficLight(GraphicsLib& display) {
 
 
 
-int main() {
-    try {
-        DisplayClient display(800, 600, "127.0.0.1", 1111);
+std::mutex displayMutex; 
 
-        display.fillScreen(toRGB565(0, 0, 0));
-
-        std::vector<uint8_t> spriteData(16 * 16 * 3, 0); 
-        for (int y = 0; y < 16; ++y) {
-            for (int x = 0; x < 16; ++x) {
-                int pixelIndex = (y * 16 + x) * 3;
-                if ((x + y) % 3 == 0) {
-                    spriteData[pixelIndex] = 255;       
-                    spriteData[pixelIndex + 1] = 0;    
-                    spriteData[pixelIndex + 2] = 0;    
-                }
-                else if ((x + y) % 3 == 1) {
-                    spriteData[pixelIndex] = 0;         
-                    spriteData[pixelIndex + 1] = 255;   
-                    spriteData[pixelIndex + 2] = 0;     
-                }
-                else {
-                    spriteData[pixelIndex] = 0;        
-                    spriteData[pixelIndex + 1] = 0;     
-                    spriteData[pixelIndex + 2] = 255;   
+void spriteAnimation(GraphicsLib& display) {
+    std::vector<uint8_t> spriteData(16 * 16 * 3, 0);
+    for (int y = 0; y < 16; ++y) {
+        for (int x = 0; x < 16; ++x) {
+            int dx = x - 8;
+            int dy = y - 8;
+            if (dx * dx + dy * dy <= 64) {
+                spriteData[(y * 16 + x) * 3] = 105;  // Darker grey for bomb body
+                spriteData[(y * 16 + x) * 3 + 1] = 105;
+                spriteData[(y * 16 + x) * 3 + 2] = 105;
+                if (dx * dx + dy * dy <= 16) {
+                    spriteData[(y * 16 + x) * 3] = 255;  // Lighter grey for the bomb fuse
+                    spriteData[(y * 16 + x) * 3 + 1] = 255;
+                    spriteData[(y * 16 + x) * 3 + 2] = 255;
                 }
             }
         }
+    }
+    display.loadSprite(1, 16, 16, spriteData);
 
-        display.loadSprite(1, 16, 16, spriteData);
-        display.showSprite(1, 100, 100);
+    std::vector<std::vector<uint8_t>> explosionFrames(5, std::vector<uint8_t>(16 * 16 * 3, 0));
+    for (int i = 0; i < 5; ++i) {
+        for (int y = 0; y < 16; ++y) {
+            for (int x = 0; x < 16; ++x) {
+                int dx = x - 8;
+                int dy = y - 8;
+                int distance = dx * dx + dy * dy;
+                if (distance <= (8 + i * 2) * (8 + i * 2)) {
+                    explosionFrames[i][(y * 16 + x) * 3] = 255 - i * 50; // Yellow to red gradient
+                    explosionFrames[i][(y * 16 + x) * 3 + 1] = 255 - i * 50;
+                    explosionFrames[i][(y * 16 + x) * 3 + 2] = 0;
+                }
+            }
+        }
+    }
+
+    const int_least16_t startX = 800 / 2 - 8;
+    const int_least16_t startY = 600 / 2 - 8;
+    int currentX = startX;
+    int currentY = startY;
+    int dx = 10;
+    int dy = 10;
+    display.setOrientation(0);
+    int textX = 800;
+    int textY = 200;
+    uint8_t colorShift = 0;
+
+    while (true) {
+        {
+            std::lock_guard<std::mutex> lock(displayMutex);
+            display.fillScreen(toRGB565(0, 0, 0));
+            display.showSprite(1, currentX, currentY);
+            display.drawText(textX, textY, toRGB565(colorShift, 255 - colorShift, colorShift), "HELLO WORLD", 30);
+        }
+        currentX += dx;
+        currentY += dy;
+
+        bool collision = false;
+        if (currentX <= 0) {
+            dx = -dx;
+            currentX = 0;
+            collision = true;
+        }
+        if (currentX >= 640) {
+            dx = -dx;
+            currentX = 640;
+            collision = true;
+        }
+        if (currentY <= 0) {
+            dy = -dy;
+            currentY = 0;
+            collision = true;
+        }
+        if (currentY >= 400) {
+            dy = -dy;
+            currentY = 400;
+            collision = true;
+        }
+
+        if (collision) {
+            for (const auto& frame : explosionFrames) {
+                std::lock_guard<std::mutex> lock(displayMutex);
+                display.loadSprite(2, 16, 16, frame);
+                display.showSprite(2, currentX, currentY);
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        }
+
+        textX -= 5;
+        if (textX < -300) textX = 800;
+
+        colorShift += 5;
+        if (colorShift > 255) colorShift = 0;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+}
+
+
+
+
+
+
+
+
+int main() {
+    try {
+        DisplayClient display(800, 600, "127.0.0.1", 1111);
+        display.fillScreen(toRGB565(255, 255, 255));
+        std::thread spriteAnimationThread(spriteAnimation, std::ref(display));
+        spriteAnimationThread.join();
     }
     catch (const std::exception& e) {
         std::cerr << "Exception: " << e.what() << std::endl;
@@ -350,4 +440,3 @@ int main() {
 
     return 0;
 }
-
